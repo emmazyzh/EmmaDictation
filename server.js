@@ -76,7 +76,7 @@ app.get('/api/english', async (req, res) => {
   }
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Proxy server running at http://localhost:${PORT}`);
+  console.log(`Proxy server running at http://localhost:${PORT}`);
 });
