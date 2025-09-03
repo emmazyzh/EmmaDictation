@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dictation Practice Tool</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2em; position: relative; overflow-x: hidden; }
+    textarea { width: 80%; height: 100px; font-size: 1em; padding: 0.5em; margin: 0.5em; }
+    #status { margin-top: 1em; font-weight: bold; }
+    .icon-btn { font-size: 1em; padding: 0.7em 1.5em; margin: 0.3em; border: none; border-radius: 5px; cursor: pointer; background-color: #4CAF50; color: white; }
+    .voice-toggle { position: absolute; right: 10%; top: 2em; text-align: right; }
+    #voiceSelect { padding: 0.5em; font-size: 1em; }
+    #progress { margin-top: 1em; font-size: 1em; }
+    #ribbons {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      background: url('https://www.gifcen.com/wp-content/uploads/2022/06/confetti-gif-3.gif') repeat;
+      background-size: auto; /* or set a custom size like 300px */
+    }
+    .hidden { display: none; }
+    #wordDisplay { font-size: 1.2em; margin: 1em 0; }
+    .eye-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; margin-left: 0.5em; }
+    #hintContainer { margin-top: 1em; width: 80%; margin-left: auto; margin-right: auto; text-align: left; }
+    #hintTitle { font-weight: bold; margin-bottom: 0.5em; font-size: 1.1em; }
+    #hintBox { display: none; border: 1px solid #ccc; padding: 1em; border-radius: 8px; background: #f9f9f9; white-space: pre-wrap; display: block;}
+    select[multiple], select[size] { width: 300px; height: 300px; }
+  </style>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <h1>Dictation Tool</h1>
+
+  <div>
+    <label><input type="radio" name="mode" value="book"> Choose a Book</label>
+    <label><input type="radio" name="mode" value="custom" checked> Customize Your Own Vocabulary List</label>
+  </div>
+
+  <div id="bookSection" class="hidden">
+    <p>Select a book and a word list:</p>
+    <select id="bookSelect" size="10"></select>
+    <select id="sheetSelect" size="10"></select>
+  </div>
+
+  <div id="customSection">
+    <p>Enter a comma-separated list of words:</p>
+    <textarea id="wordInput" placeholder="e.g., apple, banana, chocolate"></textarea>
+  </div>
+
+  <div class="voice-toggle">
+    <label for="voiceSelect">Voice:</label>
+    <select id="voiceSelect">
+      <option value="Tom">Tom</option>
+      <option value="Evan">Evan</option>
+      <option value="Samantha">Samantha</option>
+      <option value="Zoe">Zoe</option>
+    </select>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn" class="icon-btn">Start Dictation</button>
+    <button onclick="nextWord()" class="icon-btn">Next</button>
+    <button onclick="playPreviousWord()" class="icon-btn">Last</button>
+    <button onclick="repeatCurrentWord()" class="icon-btn">Repeat</button>
+    <button id="hintBtn" onclick="toggleHint()" class="icon-btn">Show Hint</button>
+  </div>
+
+  <div id="wordDisplay">Answer Key: *** <button class="eye-btn" onclick="toggleWord()">👁️</button></div>
+  <p id="progress"></p>
+  <p id="status">Status: Waiting for input...</p>
+  <div id="hintContainer">
+    <div id="hintTitle">Hints:</div>
+    <div id="hintBox">Click the Show Hint button to reveal a hint for the current word.</div>
+  </div>
+  <div id="ribbons"></div>
+
+  <script>
+    const books = {
+      "BJU Science": "http://localhost:3000/download?id=1w12b1K3riu1T_ksH6OH_D2zCHr1bitTM"
+    };
+
+    let words = [], index = 0, recognition, voices = [], selectedVoice = null, isDictating = false, wentBack = false, showRealWord = false, hintsVisible = false;
+
+    document.querySelectorAll('input[name="mode"]').forEach(r => {
+      r.addEventListener('change', (e) => {
+        if (e.target.value === 'book') {
+          document.getElementById('bookSection').classList.remove('hidden');
+          document.getElementById('customSection').classList.add('hidden');
+          document.getElementById('bookSelect').selectedIndex = 0;
+          document.getElementById('bookSelect').dispatchEvent(new Event('change'));
+        } else {
+          document.getElementById('customSection').classList.remove('hidden');
+          document.getElementById('bookSection').classList.add('hidden');
+        }
+      });
+    });
+
+    window.onload = () => {
+      const bookSelect = document.getElementById('bookSelect');
+      for (const bookName in books) {
+        const opt = document.createElement('option');
+        opt.value = bookName;
+        opt.textContent = bookName;
+        bookSelect.appendChild(opt);
+      }
+      bookSelect.selectedIndex = 0;
+    };
+
+    document.getElementById('bookSelect').addEventListener('change', async () => {
+      const url = books[document.getElementById('bookSelect').value];
+      try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheetSelect = document.getElementById('sheetSelect');
+        sheetSelect.innerHTML = '';
+
+        const displayMap = workbook.SheetNames.map(name => {
+          const trimmed = name.trim();
+          const match = trimmed.match(/^(\d+)-(\d+)$/);
+          const display = match ? `Grade ${match[1]} Unit ${match[2]}` : trimmed;
+          return { value: name, label: display };
+        }).sort((a, b) => a.label.localeCompare(b.label));
+
+        displayMap.forEach(({ value, label }) => {
+          const opt = document.createElement('option');
+          opt.value = value;
+          opt.textContent = label;
+          sheetSelect.appendChild(opt);
+        });
+
+        sheetSelect.selectedIndex = 0;
+        await preloadSheetWords();
+      } catch (error) {
+        console.error('Error loading workbook:', error);
+      }
+    });
+
+    document.getElementById('sheetSelect').addEventListener('change', preloadSheetWords);
+
+    async function preloadSheetWords() {
+      const bookName = document.getElementById('bookSelect').value;
+      const sheetSelect = document.getElementById('sheetSelect');
+      const sheetName = sheetSelect.value;
+      const selectedText = sheetSelect.options[sheetSelect.selectedIndex].textContent;
+      const url = books[bookName];
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      words = data.slice(1).map(row => row[1]).filter(Boolean);
+      index = 0;
+      updateProgress();
+      document.getElementById('status').textContent = `${selectedText}: ${words.length} words loaded. Ready to start.`;
+    }
+
+    function populateVoices() {
+      voices = speechSynthesis.getVoices();
+      const defaultVoiceName = document.getElementById('voiceSelect').value;
+      selectedVoice = voices.find(v => v.name === defaultVoiceName) || voices[0];
+    }
+
+    speechSynthesis.onvoiceschanged = populateVoices;
+
+    document.getElementById('voiceSelect').addEventListener('change', () => {
+      const voiceName = document.getElementById('voiceSelect').value;
+      selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+    });
+
+    function speakText(text) {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.voice = selectedVoice;
+      speechSynthesis.speak(utter);
+    }
+
+    function updateProgress() {
+      document.getElementById('progress').textContent = `Progress: ${Math.min(index, words.length)} / ${words.length}`;
+    }
+
+    function showRibbons() {
+      console.log("showRibbons triggered");
+      const ribbonDiv = document.getElementById('ribbons');
+      ribbonDiv.style.display = 'block';
+      setTimeout(() => {
+      ribbonDiv.style.display = 'none';
+      }, 5000);
+    }
+
+
+    function listenNextCommand() {
+      if (!('webkitSpeechRecognition' in window)) return;
+      recognition = new webkitSpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        document.getElementById('status').textContent = `Heard: "${transcript}"`;
+        if (transcript.includes("next") || transcript.includes("move on") || transcript.includes("done") || transcript.includes("finished") || transcript.includes("completed")) {
+          if (index >= words.length) {
+            speakText('Great job! You finished the dictation! See you next time.');
+            document.getElementById('status').textContent = 'Great job! You finished the dictation! See you next time.';
+            showRibbons(); return;
+          }
+          nextWord();
+        } else if (transcript.includes("again") || transcript.includes("repeat") || transcript.includes("pardon")) repeatCurrentWord();
+        else if (transcript.includes("last") || transcript.includes("previous") || transcript.includes("back")) playPreviousWord();
+        else listenNextCommand();
+      };
+      recognition.onerror = () => listenNextCommand();
+      recognition.start();
+    }
+
+    function repeatCurrentWord() {
+      if (index > 0 && index <= words.length) speakText(words[index - 1]);
+      setTimeout(() => listenNextCommand(), 1000);
+    }
+
+    function playPreviousWord() {
+      if (index <= 1 || wentBack) { listenNextCommand(); return; }
+      index -= 2; wentBack = true; nextWord();
+    }
+
+    function nextWord() {
+      if (!isDictating) return;
+      if (index < words.length) {
+        wentBack = false;
+        document.getElementById('status').textContent = ``;
+        speakText(words[index++]); 
+        updateProgress();
+        updateWordDisplay();
+        showHint();
+        setTimeout(() => listenNextCommand(), 1000);
+      } else {
+        document.getElementById('status').textContent = 'Great job! You finished the dictation! See you next time.';
+        speakText('Great job! You finished the dictation! See you next time.');
+        showRibbons(); updateProgress(); isDictating = false;
+      }
+    }
+
+    function startDictation() {
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      if (mode === 'custom') {
+        words = document.getElementById('wordInput').value.split(',').map(w => w.trim()).filter(Boolean);
+      }
+      const voiceName = document.getElementById('voiceSelect').value;
+      selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+      index = 0; wentBack = false;
+      if (words.length === 0) {
+        document.getElementById('status').textContent = 'Please enter or load some words.'; return;
+      }
+      isDictating = true;
+      document.getElementById('status').textContent = 'Starting dictation...';
+      updateProgress(); nextWord();
+    }
+
+    function toggleWord() {
+      showRealWord = !showRealWord;
+      updateWordDisplay();
+    }
+
+    function updateWordDisplay() {
+      const wordDisplay = document.getElementById('wordDisplay');
+      if (index > 0 && index <= words.length) {
+        const word = showRealWord ? words[index - 1] : '***';
+        wordDisplay.innerHTML = `Answer Key: ${word} <button class="eye-btn" onclick="toggleWord()">🙈</button>`;
+      } else {
+        wordDisplay.innerHTML = 'Answer Key: *** <button class="eye-btn" onclick="toggleWord()">👁️</button>';
+      }
+    }
+
+    function toggleHint() {
+      hintsVisible = !hintsVisible;
+      const hintBox = document.getElementById('hintBox');
+      const hintBtn = document.getElementById('hintBtn');
+      if (hintsVisible) {
+        hintBtn.textContent = 'Hide Hints';
+        showHint();
+      } else {
+        hintBtn.textContent = 'Show Hints';
+        hintBox.textContent = 'Click the Show Hint button to reveal a hint for the current word.';
+      }
+    }
+
+    async function showHint() {
+      if (index === 0 || index > words.length) return;
+      const word = words[index - 1];
+      const hintBox = document.getElementById('hintBox');
+
+      if(hintsVisible){
+        try {
+          const [chRes, enRes] = await Promise.all([
+            fetch(`http://127.0.0.1:3000/api/chinese?word=${encodeURIComponent(word)}`),
+            fetch(`http://127.0.0.1:3000/api/english?word=${encodeURIComponent(word)}`)
+          ]);
+          const chinese = await chRes.json();
+          const english = await enRes.json();
+        hintBox.textContent =  `${chinese.chinese}\n${english.definition}`;
+        } catch (e) {
+          hintBox.textContent = 'Failed to load Chinese translation.';
+        }
+      }
+      else{
+        hintBox.textContent = 'Click the Show Hint button to reveal a hint for the current word.';
+      }
+    }
+    
+
+    document.getElementById('startBtn').onclick = startDictation;
+  </script>
+</body>
+</html>
