@@ -12,11 +12,6 @@ cd EmmaDictation
 
 git branch -a
 
-Typically, you'll see:
-
-* main
-  remotes/origin/main
-
 ### Switch to the Main Branch
 
 git checkout main
