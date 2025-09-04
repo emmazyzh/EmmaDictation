@@ -16,7 +16,7 @@ git branch -a
 
 git checkout main
 
-5. Always Keep It Updated
+### Always Keep It Updated
 
 git pull origin main
 
