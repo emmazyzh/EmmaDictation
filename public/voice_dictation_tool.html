@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Dictation Practice Tool</title>
   <style>
     body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,"Noto Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; text-align: center; padding: 2em; position: relative; overflow-x: hidden; background: #ffffff; color:#0f172a; }
@@ -14,13 +15,12 @@
     #voiceSelect { padding: 0.5em; font-size: 1em; border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
     #progress { margin-top: 1em; font-size: 0.8em; color:#6b7280; }
     #ribbons { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; background: url('https://www.gifcen.com/wp-content/uploads/2022/06/confetti-gif-3.gif') repeat; background-size: auto; }
-    .hidden { display: none; }
     #wordDisplay { font-weight: bold; font-size: 1.2em; margin: 1em 0; }
     .eye-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; margin-left: 0.5em; }
     #hintContainer { margin-top: 1em; width: 80%; margin-left: auto; margin-right: auto; text-align: left; }
     #hintTitle { font-weight: bold; margin-bottom: 0.5em; font-size: 1em; }
     #hintBox { border: 1px solid #e5e7eb; padding: 1em; border-radius: 12px; background: #f9fafb; white-space: pre-wrap; font-size: 14px;}
-    select[multiple], select[size] { width: 40%; height: 118px; padding: 0.5em; margin: 2em 0; background:#fff; border:1px solid #e5e7eb; border-radius:10px; }
+    select[multiple], select[size] { width: 100%; padding: 0.5em; background:#fff; border:1px solid #e5e7eb; border-radius:10px; }
     .tags-section { margin: 32px auto 40px; width:80%; }
     .tags-title { font-size: 16px; margin: 0 0 10px; color: #6b7280; }
     .tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -73,6 +73,191 @@
       outline-offset: 2px;
     }
 
+    /* --- Responsive: layout tokens --- */
+    :root{
+      --page-max: 960px;
+      --panel-max: 900px; 
+      --pad-x: clamp(12px, 4vw, 24px);
+      --gap: clamp(8px, 2.5vw, 16px);
+      --section-to-controls-gap: clamp(16px, 4vw, 36px);
+    }
+
+    /* Page container */
+    .container{
+      max-width: var(--page-max);
+      margin: 0 auto;
+      padding: 0 var(--pad-x);
+      text-align: center;
+    }
+
+    /* Better base typography for mixed screens */
+    h1{ 
+      font-size: clamp(1.25rem, 2.2vw + 1rem, 2rem);
+      margin: 0 0 .25em;
+    }
+    body{ 
+      font-size: clamp(14px, 1.5vw, 16px);
+    }
+
+    /* Toolbar: mode pills + voice select in one row (wraps on small screens) */
+    .toolbar{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--gap);
+      flex-wrap: wrap;
+      margin: 0 auto 1rem;
+    }
+
+    /* voice-toggle no longer absolute; let it flow */
+    .voice-toggle{
+      position: static;
+    }
+
+    /* Inputs & content blocks go full-width inside container */
+    textarea,
+    #hintContainer,
+    .tags-section{
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Make textarea height adaptive but not tiny */
+    textarea{
+      height: clamp(120px, 22vh, 200px);
+    }
+
+    /* Hint box readable on phones */
+    #hintBox{
+      font-size: clamp(13px, 1.6vw, 14px);
+    }
+
+    /* Word “tags” wrap nicely and are tappable on mobile */
+    .tags-wrap{ gap: 10px; }
+    .tag{
+      font-size: clamp(12px, 2.5vw, 14px);
+      padding: .5em .9em;
+    }
+
+    /* Controls: buttons become a neat grid on wider screens */
+    .controls{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+      max-width: 720px;
+      margin: 0 auto var(--gap);
+    }
+    .icon-btn{ width: 100%; }
+
+    /* Show answer line with comfy size */
+    #wordDisplay{
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+    }
+    .eye-btn{
+      font-size: clamp(1rem, 4vw, 1.2rem);
+    }
+
+    /* Book area: stack selects on phones, side-by-side on tablets/desktops */
+    #bookSection{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr)); /* 两列，列宽不小于280px */
+      gap: 12px;
+
+      /* 关键：限制整体宽度并用 auto 外边距水平居中 */
+      max-width: 900px;               /* 可按需调大/调小 */
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;                    /* 在小屏占满容器 */
+    }
+
+    /* Replace fixed 40% width selects with fluid sizing */
+    select[multiple], select[size]{
+      width: 100%;
+      height: clamp(140px, 38vh, 320px);
+    }
+
+    /* Mode pills: keep your visual style but make spacing adaptive */
+    .mode-group{
+      display: flex;
+      width: fit-content;
+      margin: 0 auto;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f3f4f6;
+    }
+
+    /* On wider screens, enhance layout */
+    @media (min-width: 640px){
+      .controls{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (min-width: 900px){
+      .controls{ grid-template-columns: repeat(4, minmax(0,1fr)); }
+      #bookSection{ grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Keep confetti overlay mobile-friendly */
+    #ribbons{
+      background-size: 240px auto; /* not huge on phones */
+    }
+
+    /* OPTIONAL: if long words overflow, allow breaks */
+    #wordTags, #hintBox { overflow-wrap: anywhere; }
+    .hidden { display: none !important; }
+
+
+    /* 统一面板高度（可按需改数值） */
+    #bookSection,
+    #customSection{
+      width: 100%;
+      max-width: var(--panel-max);
+      --panel-h: clamp(220px, 38vh, 420px); /* 手机不至于太小，PC也不会太高 */
+      min-height: var(--panel-h);
+      margin-bottom: var(--section-to-controls-gap);
+    }
+
+    /* Book：两列选择框且拉伸至同高 */
+    #bookSection{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr)); /* 两列，列宽不小于280px */
+      gap: 12px;
+
+      /* 关键：限制整体宽度并用 auto 外边距水平居中 */
+      max-width: 900px;               /* 可按需调大/调小 */
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;                    /* 在小屏占满容器 */
+    }
+
+    /* 覆盖旧规则：选择框高度占满父容器 */
+    #bookSection select{
+      width: 100% !important;
+      max-width: 100%;
+      height: 100% !important; /* 防止先前 height:118px 等规则干扰 */
+      min-height: 0;
+    }
+
+    /* Custom：让 textarea 占满父容器高度（而不是固定 100px） */
+    #customSection{
+      display: grid;           /* 让里面的 textarea 能用 height:100% */
+    }
+    #customSection textarea{
+      width: 100% !important;   /* 覆盖全局 textarea 80% 规则 */
+      max-width: 100%;
+      height: 100% !important; /* 填满 #customSection 的最小高度 */
+      margin: 0;               /* 避免外边距把整体高度“撑高” */
+      width: 100%;
+      box-sizing: border-box;  /* 计算高度时包含内边距 */
+    }
+
+    /* 小屏下 Book 面板改为单列，但仍保持同高 */
+    @media (max-width: 900px){
+      #bookSection{ grid-template-columns: 1fr; }
+    }
+
+
   </style>
 
   <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
@@ -81,50 +266,52 @@
   
 </head>
 <body>
-  <h1>Dictation Tool</h1>
+  <div class="container">
+    <h1>Dictation Tool</h1>
+    <div class="toolbar">
+      <div class="mode-group">
+        <label><input type="radio" name="mode" value="book"> Choose a Book</label>
+        <label><input type="radio" name="mode" value="custom" checked> Customize Your Own Vocabulary List</label>
+      </div>
 
-  <div class="mode-group">
-    <label><input type="radio" name="mode" value="book"> Choose a Book</label>
-    <label><input type="radio" name="mode" value="custom" checked> Customize Your Own Vocabulary List</label>
+      <!--div class="voice-toggle">
+        <label for="voiceSelect">Voice:</label>
+        <select id="voiceSelect">
+          <option value="Tom">Tom</option>
+          <option value="Evan">Evan</option>
+          <option value="Samantha">Samantha</option>
+          <option value="Zoe">Zoe</option>
+        </select>
+      </！div-->
+    </div>
+    <div id="bookSection" class="hidden">
+      <select id="bookSelect" size="10"></select>
+      <select id="sheetSelect" size="10"></select>
+    </div>
+
+    <div id="customSection">
+      <textarea id="wordInput" placeholder="e.g., apple, banana, chocolate"></textarea>
+    </div>
+    <div class="controls">
+      <button id="startBtn" class="icon-btn">Start</button>
+      <button onclick="nextWord()" class="icon-btn">Next</button>
+      <!--button onclick="playPreviousWord()" class="icon-btn">Last</!--button-->
+      <button onclick="repeatCurrentWord()" class="icon-btn">Repeat</button>
+      <button id="hintBtn" onclick="toggleHint()" class="icon-btn">Show Hint</button>
+    </div>
+
+    <div id="wordDisplay">Answer Key: *** <button class="eye-btn" onclick="toggleWord()">👁️</button></div>
+    <p><span id="progress"></span>&nbsp;&nbsp;&nbsp;<span id="status">Status: Waiting for input...</span></p>
+
+    <div id="hintContainer">
+      <div id="hintTitle">Hints:</div>
+      <div id="hintBox">Click the Show Hint button to reveal a hint for the current word.</div>
+    </div>
+    <section id="word-tags-section" class="tags-section">
+        <div id="wordTags" class="tags-wrap"></div>
+    </section>
   </div>
 
-  <div id="bookSection" class="hidden">
-    <select id="bookSelect" size="10"></select>
-    <select id="sheetSelect" size="10"></select>
-  </div>
-
-  <div id="customSection">
-    <textarea id="wordInput" placeholder="e.g., apple, banana, chocolate"></textarea>
-  </div>
-
-  <div class="voice-toggle">
-    <label for="voiceSelect">Voice:</label>
-    <select id="voiceSelect">
-      <option value="Tom">Tom</option>
-      <option value="Evan">Evan</option>
-      <option value="Samantha">Samantha</option>
-      <option value="Zoe">Zoe</option>
-    </select>
-  </div>
-
-  <div class="controls">
-    <button id="startBtn" class="icon-btn">Start</button>
-    <button onclick="nextWord()" class="icon-btn">Next</button>
-    <!--button onclick="playPreviousWord()" class="icon-btn">Last</!--button-->
-    <button onclick="repeatCurrentWord()" class="icon-btn">Repeat</button>
-    <button id="hintBtn" onclick="toggleHint()" class="icon-btn">Show Hint</button>
-  </div>
-
-  <div id="wordDisplay">Answer Key: *** <button class="eye-btn" onclick="toggleWord()">👁️</button></div>
-  <p><span id="progress"></span>&nbsp;&nbsp;&nbsp;<span id="status">Status: Waiting for input...</span></p>
-
-  <div id="hintContainer">
-    <div id="hintTitle">Hints:</div>
-    <div id="hintBox">Click the Show Hint button to reveal a hint for the current word.</div>
-  </div>
-  <section id="word-tags-section" class="tags-section">
-      <div id="wordTags" class="tags-wrap"></div>
-  </section>
   <div id="ribbons"></div>
 
   <script>
