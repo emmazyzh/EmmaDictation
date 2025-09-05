@@ -4,52 +4,96 @@
   <meta charset="UTF-8">
   <title>Dictation Practice Tool</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 2em; position: relative; overflow-x: hidden; }
-    textarea { width: 80%; height: 100px; font-size: 1em; padding: 0.5em; margin: 0.5em; }
-    #status { margin-top: 1em; font-weight: bold; }
-    .icon-btn { font-size: 1em; padding: 0.7em 1.5em; margin: 0.3em; border: none; border-radius: 5px; cursor: pointer; background-color: #4CAF50; color: white; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial,"Noto Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; text-align: center; padding: 2em; position: relative; overflow-x: hidden; background: #ffffff; color:#0f172a; }
+    textarea { width: 80%; height: 100px; font-size: 1em; padding: 0.5em; margin: 2em 0; background:#fff; border:1px solid #e5e7eb; border-radius:10px; }
+    #status { margin-top: 1em; font-size: 0.8em; color: #6b7280; }
+    .icon-btn { font-size: 1em; padding: 0.7em 1.5em; margin: 0.3em; border: none; border-radius: 8px; cursor: pointer; background-color: #2563eb; color: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.08); transition: transform .06s ease, filter .12s ease; }
+    .icon-btn:hover { filter: brightness(1.05); }
+    .icon-btn:active { transform: translateY(1px) scale(.98); }
     .voice-toggle { position: absolute; right: 10%; top: 2em; text-align: right; }
-    #voiceSelect { padding: 0.5em; font-size: 1em; }
-    #progress { margin-top: 1em; font-size: 1em; }
-    #ribbons {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 9999;
-      background: url('https://www.gifcen.com/wp-content/uploads/2022/06/confetti-gif-3.gif') repeat;
-      background-size: auto; /* or set a custom size like 300px */
-    }
+    #voiceSelect { padding: 0.5em; font-size: 1em; border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
+    #progress { margin-top: 1em; font-size: 0.8em; color:#6b7280; }
+    #ribbons { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; background: url('https://www.gifcen.com/wp-content/uploads/2022/06/confetti-gif-3.gif') repeat; background-size: auto; }
     .hidden { display: none; }
-    #wordDisplay { font-size: 1.2em; margin: 1em 0; }
+    #wordDisplay { font-weight: bold; font-size: 1.2em; margin: 1em 0; }
     .eye-btn { background: none; border: none; cursor: pointer; font-size: 1.2em; margin-left: 0.5em; }
     #hintContainer { margin-top: 1em; width: 80%; margin-left: auto; margin-right: auto; text-align: left; }
-    #hintTitle { font-weight: bold; margin-bottom: 0.5em; font-size: 1.1em; }
-    #hintBox { display: none; border: 1px solid #ccc; padding: 1em; border-radius: 8px; background: #f9f9f9; white-space: pre-wrap; display: block;}
-    select[multiple], select[size] { width: 300px; height: 300px; }
+    #hintTitle { font-weight: bold; margin-bottom: 0.5em; font-size: 1em; }
+    #hintBox { border: 1px solid #e5e7eb; padding: 1em; border-radius: 12px; background: #f9fafb; white-space: pre-wrap; font-size: 14px;}
+    select[multiple], select[size] { width: 40%; height: 118px; padding: 0.5em; margin: 2em 0; background:#fff; border:1px solid #e5e7eb; border-radius:10px; }
+    .tags-section { margin: 32px auto 40px; width:80%; }
+    .tags-title { font-size: 16px; margin: 0 0 10px; color: #6b7280; }
+    .tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .tag { display: inline-block; padding: 6px 12px; border-radius: 999px; border: 1px solid #e5e7eb; background: #f3f4f6; color: #0f172a; font-size: 14px; transition: transform .08s ease, box-shadow .15s ease, background .15s ease; }
+    .tag:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+    .tag.active { background: #e0ecff; border-color: #3b82f6; outline: 2px solid #93c5fd; transform: scale(1.03); }
+    /* 分段开关容器 */
+    .mode-group{
+      display: inline-flex;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f3f4f6;
+    }
+
+    /* 隐藏原生 radio，但保留可访问性（键盘可聚焦、屏幕阅读器可读） */
+    .mode-group label > input[type="radio"]{
+      position: absolute !important;
+      clip: rect(1px,1px,1px,1px);
+      clip-path: inset(50%);
+      width: 1px; height: 1px;
+      overflow: hidden; white-space: nowrap;
+    }
+
+    /* 标签当按钮用 */
+    .mode-group label{
+      position: relative;
+      cursor: pointer;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      user-select: none;
+      transition: background .15s ease, color .15s ease, box-shadow .2s ease, transform .06s ease;
+    }
+    .mode-group label:hover{ background: #eef2ff; }
+
+    /* 选中态（利用 :has 选择包含已选 radio 的 label） */
+    .mode-group label:has(input:checked){
+      background: #ffffff;
+      color: #111827;
+      box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    }
+
+    /* 键盘可视焦点 */
+    .mode-group label:has(input:focus-visible){
+      outline: 2px solid #93c5fd;
+      outline-offset: 2px;
+    }
+
   </style>
+
   <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  
 </head>
 <body>
   <h1>Dictation Tool</h1>
 
-  <div>
+  <div class="mode-group">
     <label><input type="radio" name="mode" value="book"> Choose a Book</label>
     <label><input type="radio" name="mode" value="custom" checked> Customize Your Own Vocabulary List</label>
   </div>
 
   <div id="bookSection" class="hidden">
-    <p>Select a book and a word list:</p>
     <select id="bookSelect" size="10"></select>
     <select id="sheetSelect" size="10"></select>
   </div>
 
   <div id="customSection">
-    <p>Enter a comma-separated list of words:</p>
     <textarea id="wordInput" placeholder="e.g., apple, banana, chocolate"></textarea>
   </div>
 
@@ -64,20 +108,23 @@
   </div>
 
   <div class="controls">
-    <button id="startBtn" class="icon-btn">Start Dictation</button>
+    <button id="startBtn" class="icon-btn">Start</button>
     <button onclick="nextWord()" class="icon-btn">Next</button>
-    <button onclick="playPreviousWord()" class="icon-btn">Last</button>
+    <!--button onclick="playPreviousWord()" class="icon-btn">Last</!--button-->
     <button onclick="repeatCurrentWord()" class="icon-btn">Repeat</button>
     <button id="hintBtn" onclick="toggleHint()" class="icon-btn">Show Hint</button>
   </div>
 
   <div id="wordDisplay">Answer Key: *** <button class="eye-btn" onclick="toggleWord()">👁️</button></div>
-  <p id="progress"></p>
-  <p id="status">Status: Waiting for input...</p>
+  <p><span id="progress"></span>&nbsp;&nbsp;&nbsp;<span id="status">Status: Waiting for input...</span></p>
+
   <div id="hintContainer">
     <div id="hintTitle">Hints:</div>
     <div id="hintBox">Click the Show Hint button to reveal a hint for the current word.</div>
   </div>
+  <section id="word-tags-section" class="tags-section">
+      <div id="wordTags" class="tags-wrap"></div>
+  </section>
   <div id="ribbons"></div>
 
   <script>
@@ -85,16 +132,22 @@
       "BJU Science": "http://localhost:3000/download?id=1w12b1K3riu1T_ksH6OH_D2zCHr1bitTM"
     };
 
-    let words = [], index = 0, recognition, voices = [], selectedVoice = null, isDictating = false, wentBack = false, showRealWord = false, hintsVisible = false;
+    let words = [], index = 0, voices = [], selectedVoice = null, isDictating = false, wentBack = false, showRealWord = false, hintsVisible = false;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;          // 复用同一个实例
+    let recognitionActive = false;   // 是否处于onstart~onend之间
+    let listenRetryTimer = null;     // 重试定时器
 
     document.querySelectorAll('input[name="mode"]').forEach(r => {
       r.addEventListener('change', (e) => {
         if (e.target.value === 'book') {
+          resetUI({ clearInput: true, clearSelectors: true });
           document.getElementById('bookSection').classList.remove('hidden');
           document.getElementById('customSection').classList.add('hidden');
           document.getElementById('bookSelect').selectedIndex = 0;
           document.getElementById('bookSelect').dispatchEvent(new Event('change'));
         } else {
+          resetUI({ clearInput: true, clearSelectors: true });
           document.getElementById('customSection').classList.remove('hidden');
           document.getElementById('bookSection').classList.add('hidden');
         }
@@ -158,6 +211,7 @@
       words = data.slice(1).map(row => row[1]).filter(Boolean);
       index = 0;
       updateProgress();
+      renderWordTags(words);
       document.getElementById('status').textContent = `${selectedText}: ${words.length} words loaded. Ready to start.`;
     }
 
@@ -175,15 +229,26 @@
     });
 
     function speakText(text) {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'en-US';
-      utter.voice = selectedVoice;
-      speechSynthesis.speak(utter);
+      // 播报前：若正在听，则先停（不会触发致命错误）
+      if (recognition && recognitionActive) {
+        try { recognition.stop(); } catch {}
+      }
+
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      // u.voice = selectedVoice; // 若你有自定义声音
+      u.onend = () => {
+        // 说完再进监听，避免自说自听造成 aborted
+        listenNextCommand();
+      };
+      speechSynthesis.speak(u);
     }
 
     function updateProgress() {
       document.getElementById('progress').textContent = `Progress: ${Math.min(index, words.length)} / ${words.length}`;
     }
+
+
 
     function showRibbons() {
       console.log("showRibbons triggered");
@@ -196,32 +261,94 @@
 
 
     function listenNextCommand() {
-      if (!('webkitSpeechRecognition' in window)) return;
-      recognition = new webkitSpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
+      if (!SR) {
+        document.getElementById('status').textContent =
+          'SpeechRecognition not supported in this browser.';
+        return;
+      }
 
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase();
-        document.getElementById('status').textContent = `Heard: "${transcript}"`;
-        if (transcript.includes("next") || transcript.includes("move on") || transcript.includes("done") || transcript.includes("finished") || transcript.includes("completed")) {
-          if (index >= words.length) {
-            speakText('Great job! You finished the dictation! See you next time.');
-            document.getElementById('status').textContent = 'Great job! You finished the dictation! See you next time.';
-            showRibbons(); return;
+      // 初始化 & 仅绑定一次事件
+      if (!recognition) {
+        recognition = new SR();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => { recognitionActive = true; };
+        recognition.onend   = () => { recognitionActive = false; };
+
+        recognition.onresult = (event) => {
+          const transcript = (event.results?.[0]?.[0]?.transcript || '')
+            .toLowerCase();
+          document.getElementById('status').textContent = `Heard: "${transcript}"`;
+
+          if (transcript.includes("next") || transcript.includes("move on")
+              || transcript.includes("done") || transcript.includes("finished")
+              || transcript.includes("completed")) {
+
+            if (index >= words.length) {
+              // 可选：说话前停止麦克风，避免自说自听
+              if (recognitionActive) { try { recognition.stop(); } catch {} }
+              speakText('Great job! You finished the dictation! See you next time.');
+              document.getElementById('status').textContent =
+                'Great job! You finished the dictation! See you next time.';
+              showRibbons();
+              return;
+            }
+            nextWord(); // 建议在 nextWord 的播报结束后再调用 listenNextCommand()
+            return;
+
+          } else if (transcript.includes("again") || transcript.includes("repeat")
+                    || transcript.includes("pardon")) {
+            repeatCurrentWord(); // 同上，播报结束后再进入监听
+            return;
+
+          } else if (transcript.includes("last") || transcript.includes("previous")
+                    || transcript.includes("back")) {
+            playPreviousWord(); // 同上
+            return;
           }
-          nextWord();
-        } else if (transcript.includes("again") || transcript.includes("repeat") || transcript.includes("pardon")) repeatCurrentWord();
-        else if (transcript.includes("last") || transcript.includes("previous") || transcript.includes("back")) playPreviousWord();
-        else listenNextCommand();
-      };
-      recognition.onerror = () => listenNextCommand();
-      recognition.start();
+
+          // 未识别到命令：稍后再听一次（避免立刻 start 导致竞争）
+          scheduleStart(180);
+        };
+
+        recognition.onerror = (event) => {
+          const err = String(event?.error || '').toLowerCase();
+          // "aborted" 多为非致命（stop/切换导致），忽略即可
+          if (err !== 'aborted') {
+            document.getElementById('status').textContent = `Error: ${event.error}`;
+          }
+          // 若仍需继续听命令，稍后再尝试启动
+          scheduleStart(220);
+        };
+      }
+
+      // 安全地启动识别：不在TTS说话时、不在已激活时
+      scheduleStart(0);
+
+      function scheduleStart(delayMs) {
+        clearTimeout(listenRetryTimer);
+        listenRetryTimer = setTimeout(() => {
+          // TTS 在说话就延后
+          if (speechSynthesis.speaking) { scheduleStart(150); return; }
+          // 已在监听中就不重复 start
+          if (recognitionActive) return;
+          try {
+            recognition.start();
+          } catch (e) {
+            // 可能是 invalid_state：再等一下重试
+            scheduleStart(200);
+          }
+        }, delayMs);
+      }
     }
 
     function repeatCurrentWord() {
-      if (index > 0 && index <= words.length) speakText(words[index - 1]);
+      if (index > 0 && index <= words.length) {
+        setActiveTag(index - 1);           // keep highlight on the same word
+        speakText(words[index - 1]);
+      }
       setTimeout(() => listenNextCommand(), 1000);
     }
 
@@ -235,7 +362,12 @@
       if (index < words.length) {
         wentBack = false;
         document.getElementById('status').textContent = ``;
-        speakText(words[index++]); 
+
+        // highlight the tag for the word we're about to speak
+        setActiveTag(index);
+
+        const currentWord = words[index++];
+        speakText(currentWord);
         updateProgress();
         updateWordDisplay();
         showHint();
@@ -247,10 +379,11 @@
       }
     }
 
+
     function startDictation() {
       const mode = document.querySelector('input[name="mode"]:checked').value;
       if (mode === 'custom') {
-        words = document.getElementById('wordInput').value.split(',').map(w => w.trim()).filter(Boolean);
+        words = document.getElementById('wordInput').value.split(/\r?\n|,/).map(w => w.trim()).filter(Boolean);
       }
       const voiceName = document.getElementById('voiceSelect').value;
       selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
@@ -259,6 +392,7 @@
         document.getElementById('status').textContent = 'Please enter or load some words.'; return;
       }
       isDictating = true;
+      renderWordTags(words);
       document.getElementById('status').textContent = 'Starting dictation...';
       updateProgress(); nextWord();
     }
@@ -313,9 +447,115 @@
         hintBox.textContent = 'Click the Show Hint button to reveal a hint for the current word.';
       }
     }
-    
+
+    function renderWordTags(list) {
+      const box = document.getElementById('wordTags');
+      if (!box) return;
+      box.innerHTML = '';
+      list.forEach((w, i) => {
+        const s = document.createElement('span');
+        s.className = 'tag';
+        s.dataset.idx = i;          // <-- key: tie tags to word index
+        s.textContent = w;
+        box.appendChild(s);
+      });
+    }
+
+
+    // --- Reset all UI/state when switching modes ---
+    function resetUI({ clearInput = true } = {}) {
+      // stop any speech + listening
+      try { speechSynthesis.cancel(); } catch {}
+      if (recognition && recognitionActive) {
+        try { recognition.stop(); } catch {}
+      }
+      clearTimeout(listenRetryTimer); listenRetryTimer = null;
+
+      // reset state
+      isDictating = false;
+      words = [];
+      index = 0;
+      wentBack = false;
+
+      // clear UI
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.textContent = 'Status: Waiting for input...';
+
+      const progEl = document.getElementById('progress');
+      if (progEl) progEl.textContent = '';
+
+      const tagsBox = document.getElementById('wordTags');
+      if (tagsBox) tagsBox.innerHTML = '';
+
+      const answerKey = document.getElementById('answerKey');            // optional element
+      if (answerKey) answerKey.innerHTML = '';
+      const answerKeySection = document.getElementById('answerKeySection'); // optional section
+      if (answerKeySection) answerKeySection.style.display = 'none';
+
+      if (clearInput) {
+        const input = document.getElementById('wordInput');
+        if (input) input.value = '';
+      }
+
+      const ribbons = document.getElementById('ribbons');
+      if (ribbons) ribbons.style.display = 'none';
+    }
+    function resetUI({ clearInput = true, clearSelectors = false } = {}) {
+      try { speechSynthesis.cancel(); } catch {}
+      if (recognition && recognitionActive) { try { recognition.stop(); } catch {} }
+      clearTimeout(listenRetryTimer); listenRetryTimer = null;
+
+      // core state
+      isDictating = false;
+      words = [];
+      index = 0;
+      wentBack = false;
+
+      // UI bits
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.textContent = 'Status: Waiting for input...';
+      const progEl = document.getElementById('progress');
+      if (progEl) progEl.textContent = '';
+
+      const tagsBox = document.getElementById('wordTags');
+      if (tagsBox) tagsBox.innerHTML = '';
+
+      const ribbons = document.getElementById('ribbons');
+      if (ribbons) ribbons.style.display = 'none';
+
+      // optional: your answer key section if present
+      const answerKey = document.getElementById('answerKey');
+      if (answerKey) answerKey.innerHTML = '';
+      const answerKeySection = document.getElementById('answerKeySection');
+      if (answerKeySection) answerKeySection.style.display = 'none';
+
+      if (clearInput) {
+        const input = document.getElementById('wordInput');
+        if (input) input.value = '';
+      }
+
+      if (clearSelectors) {
+        const bookSel = document.getElementById('bookSelect');
+        const sheetSel = document.getElementById('sheetSelect');
+        if (bookSel) bookSel.selectedIndex = -1;
+        if (sheetSel) { sheetSel.innerHTML = ''; sheetSel.selectedIndex = -1; }
+      }
+    }
+
+    function setActiveTag(i) {
+      const box = document.getElementById('wordTags');
+      if (!box) return;
+      const prev = box.querySelector('.tag.active');
+      if (prev) prev.classList.remove('active');
+      const cur = box.querySelector(`.tag[data-idx="${i}"]`);
+      if (cur) {
+        cur.classList.add('active');
+        // keep the active tag in view
+        cur.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
 
     document.getElementById('startBtn').onclick = startDictation;
-  </script>
+     </script>
 </body>
 </html>
