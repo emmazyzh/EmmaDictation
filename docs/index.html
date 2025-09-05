@@ -711,8 +711,9 @@
       if (mode === 'custom') {
         words = document.getElementById('wordInput').value.split(/\r?\n|,/).map(w => w.trim()).filter(Boolean);
       }
-      const voiceName = document.getElementById('voiceSelect').value;
-      selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
+      const sel = document.getElementById('voiceSelect');
+      const v = sel ? pickVoiceByName(sel.value) : null;
+      selectedVoice = isVoiceValid(v) ? v : null; // 找不到就让它为 null
       index = 0; wentBack = false;
       if (words.length === 0) {
         document.getElementById('status').textContent = 'Please enter or load some words.'; return;
@@ -903,9 +904,28 @@
     // In your change handler, if you keep fixed options:
     const sel = document.getElementById('voiceSelect');
     sel?.addEventListener('change', () => {
-      selectedVoice = pickClosestByLabel(sel.value, voices);
+      const voiceName = document.getElementById('voiceSelect').value;
+      const v = pickVoiceByName(voiceName);
+      selectedVoice = isVoiceValid(v) ? v : null; // null => 使用默认语音
       if (selectedVoice) localStorage.setItem('voiceName', selectedVoice.name);
     });
+
+    // ---- helpers：检测 voice 是否可用，找同名 voice ----
+    const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+
+    function isVoiceValid(v){
+      if (!v) return false;
+      const list = speechSynthesis.getVoices() || [];
+      return list.some(x =>
+        x.voiceURI === v.voiceURI ||
+        (x.name === v.name && x.lang === v.lang)
+      );
+    }
+
+    function pickVoiceByName(name){
+      const list = speechSynthesis.getVoices() || [];
+      return list.find(x => x.name === name) || null;
+    }
 
 
     document.getElementById('startBtn').onclick = startDictation;
