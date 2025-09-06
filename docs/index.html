@@ -340,7 +340,7 @@
     </div>
 
     <div id="customSection">
-      <textarea id="wordInput" placeholder="e.g., apple, banana, chocolate"></textarea>
+      <textarea id="wordInput" placeholder="Enter your own vocabulary list, separated by commas or newlines. e.g. apple, banana, chocolate"></textarea>
     </div>
     <div class="controls">
       <button id="startBtn" class="icon-btn">Start</button>
@@ -711,9 +711,8 @@
       if (mode === 'custom') {
         words = document.getElementById('wordInput').value.split(/\r?\n|,/).map(w => w.trim()).filter(Boolean);
       }
-      const sel = document.getElementById('voiceSelect');
-      const v = sel ? pickVoiceByName(sel.value) : null;
-      selectedVoice = isVoiceValid(v) ? v : null; // 找不到就让它为 null
+      const voiceName = document.getElementById('voiceSelect').value;
+      selectedVoice = voices.find(v => v.name === voiceName) || voices[0];
       index = 0; wentBack = false;
       if (words.length === 0) {
         document.getElementById('status').textContent = 'Please enter or load some words.'; return;
@@ -744,15 +743,18 @@
       const hintBox = document.getElementById('hintBox');
       const hintBtn = document.getElementById('hintBtn');
       if (hintsVisible) {
+        document.getElementById('hintContainer').classList.remove('hidden');
         hintBtn.textContent = 'Hide Hints';
         showHint();
       } else {
+        document.getElementById('hintContainer').classList.add('hidden');
         hintBtn.textContent = 'Show Hints';
         hintBox.textContent = 'Click the Show Hint button to reveal a hint for the current word.';
       }
     }
 
     async function showHint() {
+
       if (index === 0 || index > words.length) return;
       const word = words[index - 1];
       const hintBox = document.getElementById('hintBox');
@@ -788,79 +790,63 @@
       });
     }
 
-
-    // --- Reset all UI/state when switching modes ---
-    function resetUI({ clearInput = true } = {}) {
-      // stop any speech + listening
-      try { speechSynthesis.cancel(); } catch {}
-      if (recognition && recognitionActive) {
-        try { recognition.stop(); } catch {}
-      }
-      clearTimeout(listenRetryTimer); listenRetryTimer = null;
-
-      // reset state
-      isDictating = false;
-      words = [];
-      index = 0;
-      wentBack = false;
-
-      // clear UI
-      const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.textContent = 'Status: Waiting for input...';
-
-      const progEl = document.getElementById('progress');
-      if (progEl) progEl.textContent = '';
-
-      const tagsBox = document.getElementById('wordTags');
-      if (tagsBox) tagsBox.innerHTML = '';
-
-      const answerKey = document.getElementById('answerKey');            // optional element
-      if (answerKey) answerKey.innerHTML = '';
-      const answerKeySection = document.getElementById('answerKeySection'); // optional section
-      if (answerKeySection) answerKeySection.style.display = 'none';
-
-      if (clearInput) {
-        const input = document.getElementById('wordInput');
-        if (input) input.value = '';
-      }
-
-      const ribbons = document.getElementById('ribbons');
-      if (ribbons) ribbons.style.display = 'none';
-    }
     function resetUI({ clearInput = true, clearSelectors = false } = {}) {
+      // --- Stop any ongoing TTS / ASR and timers
       try { speechSynthesis.cancel(); } catch {}
       if (recognition && recognitionActive) { try { recognition.stop(); } catch {} }
       clearTimeout(listenRetryTimer); listenRetryTimer = null;
 
-      // core state
+      // --- Core state
       isDictating = false;
       words = [];
       index = 0;
       wentBack = false;
 
-      // UI bits
+      // --- NEW: flags back to defaults
+      showRealWord = false;
+      hintsVisible = false;
+
+      // --- UI: status/progress
       const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.textContent = 'Status: Waiting for input...';
+      if (statusEl) statusEl.textContent = ''; // was: 'Status: Waiting for input...'
       const progEl = document.getElementById('progress');
       if (progEl) progEl.textContent = '';
 
+      // --- UI: answer key
+      const wordDisplay = document.getElementById('wordDisplay');
+      if (wordDisplay) {
+        wordDisplay.innerHTML = 'Answer Key: *** <button class="eye-btn" onclick="toggleWord()">👁️</button>';
+      }
+
+      // --- UI: tags
       const tagsBox = document.getElementById('wordTags');
       if (tagsBox) tagsBox.innerHTML = '';
 
+      // --- UI: ribbons
       const ribbons = document.getElementById('ribbons');
       if (ribbons) ribbons.style.display = 'none';
 
-      // optional: your answer key section if present
+      // --- UI: optional answer key section if you add it elsewhere
       const answerKey = document.getElementById('answerKey');
       if (answerKey) answerKey.innerHTML = '';
       const answerKeySection = document.getElementById('answerKeySection');
       if (answerKeySection) answerKeySection.style.display = 'none';
 
+      // --- NEW: hints reset (box + button text)
+      const hintBox = document.getElementById('hintBox');
+      if (hintBox) {
+        hintBox.textContent = 'Click the Show Hint button to reveal a hint for the current word.';
+      }
+      const hintBtn = document.getElementById('hintBtn');
+      if (hintBtn) hintBtn.textContent = 'Show Hints';
+
+      // --- Inputs
       if (clearInput) {
         const input = document.getElementById('wordInput');
         if (input) input.value = '';
       }
 
+      // --- Selectors
       if (clearSelectors) {
         const bookSel = document.getElementById('bookSelect');
         const sheetSel = document.getElementById('sheetSelect');
@@ -868,6 +854,7 @@
         if (sheetSel) { sheetSel.innerHTML = ''; sheetSel.selectedIndex = -1; }
       }
     }
+
 
     function setActiveTag(i) {
       const box = document.getElementById('wordTags');
@@ -904,32 +891,14 @@
     // In your change handler, if you keep fixed options:
     const sel = document.getElementById('voiceSelect');
     sel?.addEventListener('change', () => {
-      const voiceName = document.getElementById('voiceSelect').value;
-      const v = pickVoiceByName(voiceName);
-      selectedVoice = isVoiceValid(v) ? v : null; // null => 使用默认语音
+      selectedVoice = pickClosestByLabel(sel.value, voices);
       if (selectedVoice) localStorage.setItem('voiceName', selectedVoice.name);
     });
-
-    // ---- helpers：检测 voice 是否可用，找同名 voice ----
-    const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent);
-
-    function isVoiceValid(v){
-      if (!v) return false;
-      const list = speechSynthesis.getVoices() || [];
-      return list.some(x =>
-        x.voiceURI === v.voiceURI ||
-        (x.name === v.name && x.lang === v.lang)
-      );
-    }
-
-    function pickVoiceByName(name){
-      const list = speechSynthesis.getVoices() || [];
-      return list.find(x => x.name === name) || null;
-    }
 
 
     document.getElementById('startBtn').onclick = startDictation;
     //document.querySelector('.voice-toggle')?.classList.add('hidden');    // hide
+    document.getElementById('hintContainer').classList.add('hidden');
 
      </script>
 </body>
